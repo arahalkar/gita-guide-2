@@ -12,6 +12,8 @@ import ChapterCard from './components/ChapterCard';
 import BottomNav from './components/BottomNav';
 import { PeacockFeather, PeacockBackground } from './components/PeacockFeather';
 
+const CHAT_STORAGE_KEY = 'gita_chat_history_v1';
+
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>('home');
   const [selectedChapterId, setSelectedChapterId] = useState<number | null>(null);
@@ -31,14 +33,31 @@ const App: React.FC = () => {
     );
   }, [searchQuery]);
 
-  const [messages, setMessages] = useState<ChatMessage[]>([{
-    id: 'welcome',
-    role: 'model',
-    text: "Namaste! I am your Gita AI Assistant. Ask me anything about your studies, focus, or life duties."
-  }]);
+  // Load chat history from localStorage on initialization
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    const saved = localStorage.getItem(CHAT_STORAGE_KEY);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error("Failed to parse chat history", e);
+      }
+    }
+    return [{
+      id: 'welcome',
+      role: 'model',
+      text: "Namaste! I am Krishna. Ask me anything about your studies, focus, or life duties."
+    }];
+  });
+
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Sync chat history to localStorage
+  useEffect(() => {
+    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages));
+  }, [messages]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -55,9 +74,16 @@ const App: React.FC = () => {
       const response = await sendGitaQuestion(userMsg.text, history);
       setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: response.text, citations: response.citations }]);
     } catch (error) {
-      setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: "Error connecting to AI.", isError: true }]);
+      setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: "I'm having trouble connecting right now. Please try again.", isError: true }]);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleClearChat = () => {
+    if (window.confirm("Do you want to clear your conversation history?")) {
+      const welcomeMsg: ChatMessage = { id: 'welcome', role: 'model', text: "Namaste! I am Krishna. Ask me anything about your studies, focus, or life duties." };
+      setMessages([welcomeMsg]);
     }
   };
 
@@ -133,26 +159,62 @@ const App: React.FC = () => {
                 <div className="bg-white border-b border-krishna-200 p-4 shadow-sm z-10 flex items-center justify-between">
                   <div className="flex items-center">
                     <Sparkles className="w-5 h-5 text-peacock-700 mr-2" />
-                    <h2 className="font-bold text-krishna-900">Ask Gita AI</h2>
+                    <h2 className="font-bold text-krishna-900">Ask Krishna</h2>
                   </div>
-                  <button onClick={() => setMessages([{ id: 'welcome', role: 'model', text: "Namaste! How can I help?" }])}><Trash2 className="w-4 h-4 text-krishna-400" /></button>
+                  <button onClick={handleClearChat} className="p-2 hover:bg-red-50 rounded-full transition-colors">
+                    <Trash2 className="w-4 h-4 text-krishna-400 hover:text-red-500" />
+                  </button>
                 </div>
                 <div className="flex-1 overflow-y-auto p-4 space-y-4 max-w-3xl mx-auto w-full">
                   {messages.map((msg) => (
                     <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                       <div className={`max-w-[85%] rounded-2xl p-4 shadow-sm ${msg.role === 'user' ? 'bg-krishna-700 text-white rounded-tr-none' : 'bg-white text-krishna-900 border border-krishna-100 rounded-tl-none'}`}>
-                        <p className="text-sm leading-relaxed">{msg.text}</p>
-                        {msg.citations && <div className="mt-2 text-[10px] opacity-60">Source: {msg.citations[0]}</div>}
+                        <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+                        {msg.citations && msg.citations.length > 0 && (
+                          <div className="mt-3 pt-2 border-t border-krishna-50">
+                            <p className="text-[9px] uppercase tracking-widest font-bold text-peacock-600 mb-1">Sources</p>
+                            <div className="flex flex-wrap gap-2">
+                              {msg.citations.map((url, idx) => (
+                                <a key={idx} href={url} target="_blank" rel="noreferrer" className="text-[10px] text-peacock-700 hover:underline flex items-center">
+                                  <ExternalLink className="w-2 h-2 mr-1" /> Reference {idx + 1}
+                                </a>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
-                  {isLoading && <div className="text-xs text-krishna-400 animate-pulse">Assistant is thinking...</div>}
+                  {isLoading && (
+                    <div className="flex justify-start">
+                      <div className="bg-white border border-krishna-100 rounded-2xl rounded-tl-none p-4 shadow-sm">
+                        <div className="flex space-x-1">
+                          <div className="w-2 h-2 bg-peacock-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                          <div className="w-2 h-2 bg-peacock-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                          <div className="w-2 h-2 bg-peacock-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   <div ref={messagesEndRef} />
                 </div>
                 <div className="p-4 bg-white border-t border-krishna-200">
                   <div className="max-w-3xl mx-auto relative flex items-center">
-                    <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()} placeholder="Type your question..." className="w-full pl-4 pr-12 py-3 rounded-full border border-krishna-300 outline-none" disabled={isLoading} />
-                    <button onClick={handleSendMessage} disabled={!input.trim() || isLoading} className="absolute right-2 p-2 bg-peacock-600 text-white rounded-full"><Send className="w-4 h-4" /></button>
+                    <input 
+                      value={input} 
+                      onChange={(e) => setInput(e.target.value)} 
+                      onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()} 
+                      placeholder="Ask Krishna for guidance..." 
+                      className="w-full pl-4 pr-12 py-3 rounded-full border border-krishna-300 focus:border-peacock-500 focus:ring-1 focus:ring-peacock-500 outline-none transition-all" 
+                      disabled={isLoading} 
+                    />
+                    <button 
+                      onClick={handleSendMessage} 
+                      disabled={!input.trim() || isLoading} 
+                      className="absolute right-2 p-2 bg-peacock-600 text-white rounded-full disabled:opacity-50 disabled:bg-krishna-300 transition-all hover:bg-peacock-700 active:scale-95"
+                    >
+                      <Send className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
              </div>
@@ -162,8 +224,9 @@ const App: React.FC = () => {
               <h2 className="text-xl font-bold mb-4">Study Resources</h2>
               <a href={GITA_PDF_URL} target="_blank" rel="noreferrer" className="p-4 bg-white border border-krishna-100 rounded-xl flex items-center justify-center space-x-2 shadow-sm hover:shadow-md transition-shadow">
                 <Book className="w-5 h-5 text-peacock-600" />
-                <span>Open Hindi Gita PDF</span>
+                <span className="font-medium text-krishna-800">Open Hindi Gita PDF</span>
               </a>
+              <p className="mt-4 text-xs text-krishna-400 italic">Load the official Bhagavad Gita to read the verses in depth.</p>
             </div>
           )}
           {currentView === 'privacy' && (
@@ -173,8 +236,8 @@ const App: React.FC = () => {
               </button>
               <h1 className="text-2xl font-bold mb-4">Privacy Policy</h1>
               <p className="text-krishna-700 leading-relaxed">
-                Gita AI Assistant is designed for students. We do not collect, store, or share any personal information. 
-                Your chat sessions are strictly local to your browser and are not saved on any remote servers. 
+                Gita AI Assistant is designed for students. We do not collect, store, or share any personal information on our servers. 
+                Your chat sessions are stored locally in your browser's "LocalStorage" for your own reference and are not accessible to us or any third parties. 
                 AI responses are generated via the Google Gemini API using the queries you provide.
               </p>
             </div>
