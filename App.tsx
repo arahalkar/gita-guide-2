@@ -1,12 +1,11 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { HashRouter } from 'react-router-dom';
 import { 
   Send, ArrowLeft, ExternalLink, Sparkles, Book, Trash2, 
   Quote, Search, X, Youtube, Globe, FileText, Music, Heart
 } from 'lucide-react';
 import { CHAPTERS, GITA_PDF_URL, GITA_QUOTES, STUDY_RESOURCES } from './constants';
-import { ChatMessage, View, StudyResource } from './types';
+import { ChatMessage, View } from './types';
 import { sendGitaQuestion } from './services/geminiService';
 import ChapterCard from './components/ChapterCard';
 import BottomNav from './components/BottomNav';
@@ -82,233 +81,319 @@ const App: React.FC = () => {
 
   const handleClearChat = () => {
     if (window.confirm("Do you want to clear your conversation history?")) {
-      const welcomeMsg: ChatMessage = { id: 'welcome', role: 'model', text: "Namaste! I am Krishna. Ask me anything about your studies, focus, or life duties." };
-      setMessages([welcomeMsg]);
+      setMessages([{
+        id: 'welcome',
+        role: 'model',
+        text: "Namaste! I am Krishna. Ask me anything about your studies, focus, or life duties."
+      }]);
+      localStorage.removeItem(CHAT_STORAGE_KEY);
     }
   };
 
-  const getResourceIcon = (type: StudyResource['type']) => {
-    switch(type) {
-      case 'video': return <Youtube className="w-6 h-6 text-red-500" />;
-      case 'book': return <Book className="w-6 h-6 text-peacock-700" />;
-      case 'pdf': return <FileText className="w-6 h-6 text-blue-600" />;
-      case 'web': return <Globe className="w-6 h-6 text-emerald-600" />;
-      default: return <ExternalLink className="w-6 h-6 text-krishna-400" />;
-    }
+  const handleChapterClick = (id: number) => {
+    setSelectedChapterId(id);
+    setCurrentView('chapter');
   };
 
-  const renderHome = () => (
-    <div className="p-4 pb-24 max-w-3xl mx-auto relative">
-      <PeacockBackground />
-      <header className="mb-8 text-center pt-8">
-        <div className="flex justify-center mb-4">
-           <PeacockFeather className="h-16 w-16 drop-shadow-md" />
-        </div>
-        <h1 className="text-4xl font-serif font-bold text-krishna-900 mb-2">Gita AI Assistant</h1>
-        <p className="text-krishna-700">Wisdom for the modern student</p>
-      </header>
-
-      <div className="mb-6 bg-gradient-to-br from-peacock-50 to-white rounded-2xl p-6 shadow-sm border border-peacock-100 relative overflow-hidden">
-        <div className="relative z-10">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-[10px] font-bold text-peacock-600 uppercase tracking-widest flex items-center">Daily Wisdom</span>
-            <span className="text-[10px] text-krishna-400 font-medium">Chapter Quote</span>
-          </div>
-          
-          {/* Devnagari Script */}
-          <p className="text-krishna-950 font-serif text-2xl leading-relaxed mb-2 text-center">
-            {dailyQuote.devnagari}
-          </p>
-          
-          {/* Transliteration */}
-          <p className="text-krishna-800 font-serif italic text-base leading-relaxed mb-4 text-center opacity-80">
-            "{dailyQuote.verse}"
-          </p>
-
-          <p className="text-krishna-700 text-sm mb-4 border-t border-peacock-100 pt-4 italic">
-            {dailyQuote.translation}
-          </p>
-
-          <div className="bg-peacock-600/5 p-3 rounded-xl border border-peacock-100/50">
-            <p className="text-peacock-800 text-xs font-medium"><span className="font-bold">Student Lesson:</span> {dailyQuote.lesson}</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="mb-6 relative">
-        <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-krishna-400 w-4 h-4" />
-        <input 
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search Karma, Focus, Duty..."
-          className="w-full bg-white border border-krishna-100 rounded-full py-3 pl-10 pr-10 text-sm focus:ring-2 focus:ring-peacock-400 outline-none shadow-sm"
-        />
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {filteredChapters.map(chapter => (
-          <ChapterCard key={chapter.id} chapter={chapter} onClick={(id) => { setSelectedChapterId(id); setCurrentView('chapter'); window.scrollTo(0,0); }} />
-        ))}
-      </div>
-
-      <footer className="mt-12 text-center pb-8 opacity-40">
-        <p className="text-[10px] text-krishna-700 uppercase tracking-widest">Gita AI Assistant • 2025</p>
-        <button onClick={() => setCurrentView('privacy')} className="text-[10px] underline mt-2">Privacy Policy</button>
-      </footer>
-    </div>
-  );
+  const selectedChapter = CHAPTERS.find(c => c.id === selectedChapterId);
 
   return (
-    <HashRouter>
-      <div className="min-h-screen bg-krishna-50 font-sans text-krishna-900 selection:bg-peacock-200 selection:text-peacock-900">
-        <main className="min-h-screen">
-          {currentView === 'home' && renderHome()}
+    <div className="min-h-screen bg-krishna-50 pb-20 font-sans text-krishna-900 selection:bg-krishna-200">
+      <PeacockBackground />
+      
+      {/* Header */}
+      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-krishna-100 shadow-sm px-4 py-3">
+        <div className="max-w-md mx-auto flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <PeacockFeather className="w-8 h-8 text-peacock-600" />
+            <h1 className="text-xl font-serif font-bold text-krishna-900">Gita Guide</h1>
+          </div>
           {currentView === 'chat' && (
-             <div className="flex flex-col h-screen bg-krishna-50 pb-[64px]">
-                <div className="bg-white border-b border-krishna-200 p-4 shadow-sm z-10 flex items-center justify-between">
-                  <div className="flex items-center">
-                    <Sparkles className="w-5 h-5 text-peacock-700 mr-2" />
-                    <h2 className="font-bold text-krishna-900">Ask Krishna</h2>
-                  </div>
-                  <button onClick={handleClearChat} className="p-2 hover:bg-red-50 rounded-full transition-colors">
-                    <Trash2 className="w-4 h-4 text-krishna-400 hover:text-red-500" />
-                  </button>
-                </div>
-                <div className="flex-1 overflow-y-auto p-4 space-y-4 max-w-3xl mx-auto w-full">
-                  {messages.map((msg) => (
-                    <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[85%] rounded-2xl p-4 shadow-sm ${msg.role === 'user' ? 'bg-krishna-700 text-white rounded-tr-none' : 'bg-white text-krishna-900 border border-krishna-100 rounded-tl-none'}`}>
-                        <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
-                        {msg.citations && msg.citations.length > 0 && (
-                          <div className="mt-3 pt-2 border-t border-krishna-50">
-                            <p className="text-[9px] uppercase tracking-widest font-bold text-peacock-600 mb-1">Sources</p>
-                            <div className="flex flex-wrap gap-2">
-                              {msg.citations.map((url, idx) => (
-                                <a key={idx} href={url} target="_blank" rel="noreferrer" className="text-[10px] text-peacock-700 hover:underline flex items-center">
-                                  <ExternalLink className="w-2 h-2 mr-1" /> Reference {idx + 1}
-                                </a>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                  {isLoading && (
-                    <div className="flex justify-start">
-                      <div className="bg-white border border-krishna-100 rounded-2xl rounded-tl-none p-4 shadow-sm">
-                        <div className="flex space-x-1">
-                          <div className="w-2 h-2 bg-peacock-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                          <div className="w-2 h-2 bg-peacock-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                          <div className="w-2 h-2 bg-peacock-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  <div ref={messagesEndRef} />
-                </div>
-                <div className="p-4 bg-white border-t border-krishna-200">
-                  <div className="max-w-3xl mx-auto relative flex items-center">
-                    <input 
-                      value={input} 
-                      onChange={(e) => setInput(e.target.value)} 
-                      onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()} 
-                      placeholder="Ask Krishna for guidance..." 
-                      className="w-full pl-4 pr-12 py-3 rounded-full border border-krishna-300 focus:border-peacock-500 focus:ring-1 focus:ring-peacock-500 outline-none transition-all" 
-                      disabled={isLoading} 
-                    />
-                    <button 
-                      onClick={handleSendMessage} 
-                      disabled={!input.trim() || isLoading} 
-                      className="absolute right-2 p-2 bg-peacock-600 text-white rounded-full disabled:opacity-50 disabled:bg-krishna-300 transition-all hover:bg-peacock-700 active:scale-95"
-                    >
-                      <Send className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-             </div>
+            <button 
+              onClick={handleClearChat}
+              className="p-2 text-krishna-300 hover:text-red-500 transition-colors"
+              title="Clear Chat"
+            >
+              <Trash2 className="w-5 h-5" />
+            </button>
           )}
-          {currentView === 'resources' && (
-            <div className="p-4 pt-8 pb-24 max-w-3xl mx-auto">
-              <header className="text-center mb-8">
-                <Book className="w-10 h-10 text-peacock-700 mx-auto mb-2" />
-                <h2 className="text-2xl font-serif font-bold text-krishna-900">Study Resources</h2>
-                <p className="text-krishna-600 text-sm">Curated tools to deepen your understanding</p>
-              </header>
-              
-              <div className="space-y-4">
-                {STUDY_RESOURCES.map((resource, index) => (
-                  <a 
-                    key={index}
-                    href={resource.url} 
-                    target="_blank" 
-                    rel="noreferrer" 
-                    className="group block p-5 bg-white border border-krishna-100 rounded-2xl shadow-sm hover:shadow-md hover:border-peacock-200 transition-all relative overflow-hidden"
-                  >
-                    <div className="flex items-start space-x-4">
-                      <div className="p-3 bg-krishna-50 rounded-xl group-hover:bg-peacock-50 transition-colors">
-                        {getResourceIcon(resource.type)}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-1">
-                          <h3 className="font-bold text-krishna-900 group-hover:text-peacock-700 transition-colors">
-                            {resource.title}
-                          </h3>
-                          {resource.isFavorite && (
-                            <span className="flex items-center space-x-1 px-2 py-0.5 bg-peacock-100 text-peacock-800 text-[9px] font-bold uppercase rounded-full">
-                              <Heart className="w-2.5 h-2.5 fill-current" />
-                              <span>My Favorite</span>
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-sm text-krishna-600 leading-relaxed">
-                          {resource.description}
-                        </p>
-                      </div>
-                      <ExternalLink className="w-4 h-4 text-krishna-300 group-hover:text-peacock-500 transition-colors self-start mt-1" />
-                    </div>
-                  </a>
+        </div>
+      </header>
+
+      <main className="max-w-md mx-auto px-4 pt-4">
+        {currentView === 'home' && (
+          <div className="space-y-6">
+            {/* Daily Quote Card */}
+            <div className="bg-gradient-to-br from-krishna-800 to-peacock-700 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
+              <Quote className="absolute -right-4 -top-4 w-24 h-24 text-white/10" />
+              <div className="relative z-10">
+                <span className="inline-block px-3 py-1 bg-white/20 rounded-full text-xs font-bold mb-4 backdrop-blur-sm uppercase tracking-wider">
+                  Daily Verse
+                </span>
+                <p className="text-xl font-serif font-bold mb-2 leading-tight">
+                  "{dailyQuote.devnagari}"
+                </p>
+                <p className="text-sm opacity-90 italic mb-3">
+                  {dailyQuote.translation}
+                </p>
+                <div className="h-px w-full bg-white/20 my-4" />
+                <div className="flex items-start space-x-2">
+                  <Sparkles className="w-4 h-4 text-amber-300 mt-1 flex-shrink-0" />
+                  <p className="text-sm font-medium">
+                    <span className="text-amber-100">Student Lesson:</span> {dailyQuote.lesson}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Search */}
+            <div className="relative group">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-krishna-300 group-focus-within:text-peacock-600 transition-colors" />
+              <input
+                type="text"
+                placeholder="Search chapters or topics..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-white border border-krishna-200 rounded-2xl py-3.5 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-peacock-500 focus:border-transparent shadow-sm transition-all"
+              />
+              {searchQuery && (
+                <button 
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-4 top-1/2 -translate-y-1/2"
+                >
+                  <X className="w-4 h-4 text-krishna-300" />
+                </button>
+              )}
+            </div>
+
+            {/* Chapter List */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between px-1">
+                <h2 className="text-lg font-bold text-krishna-800 flex items-center">
+                  <Book className="w-5 h-5 mr-2 text-peacock-600" />
+                  Bhagavad Gita Chapters
+                </h2>
+                <span className="text-xs font-medium text-krishna-400">
+                  {filteredChapters.length} Chapters Found
+                </span>
+              </div>
+              <div className="grid grid-cols-1 gap-4">
+                {filteredChapters.map(chap => (
+                  <ChapterCard 
+                    key={chap.id} 
+                    chapter={chap} 
+                    onClick={handleChapterClick} 
+                  />
                 ))}
               </div>
+              {filteredChapters.length === 0 && (
+                <div className="text-center py-12 bg-white rounded-2xl border border-dashed border-krishna-200">
+                  <Search className="w-12 h-12 text-krishna-100 mx-auto mb-3" />
+                  <p className="text-krishna-400">No chapters matching your search.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {currentView === 'chapter' && selectedChapter && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
+            <button 
+              onClick={() => setCurrentView('home')}
+              className="flex items-center text-peacock-700 font-medium hover:underline mb-2"
+            >
+              <ArrowLeft className="w-4 h-4 mr-1" /> Back to Chapters
+            </button>
+            
+            <div className="bg-white rounded-3xl p-8 shadow-sm border border-krishna-100">
+              <span className="text-peacock-600 font-bold tracking-widest text-xs uppercase mb-2 block">
+                Chapter {selectedChapter.id}
+              </span>
+              <h2 className="text-3xl font-serif font-bold text-krishna-900 mb-1 leading-tight">
+                {selectedChapter.sanskritName}
+              </h2>
+              <h3 className="text-xl text-krishna-700 font-hindi mb-4">
+                {selectedChapter.translation}
+              </h3>
+              <p className="text-krishna-500 italic mb-6">
+                {selectedChapter.englishName}
+              </p>
               
-              <p className="mt-8 text-center text-xs text-krishna-400 italic">
-                Knowledge is the greatest treasure. Keep learning.
+              <div className="prose prose-stone">
+                <p className="text-krishna-800 leading-relaxed text-lg mb-8">
+                  {selectedChapter.summary}
+                </p>
+              </div>
+
+              <div className="flex flex-col space-y-3">
+                <a 
+                  href={selectedChapter.detailedUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center space-x-2 bg-peacock-700 text-white rounded-2xl py-4 font-bold shadow-lg shadow-peacock-100 active:scale-95 transition-transform"
+                >
+                  <Globe className="w-5 h-5" />
+                  <span>Read Detailed Commentary</span>
+                  <ExternalLink className="w-4 h-4" />
+                </a>
+                <a 
+                  href={GITA_PDF_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center space-x-2 bg-krishna-100 text-krishna-700 rounded-2xl py-4 font-bold hover:bg-krishna-200 transition-colors"
+                >
+                  <FileText className="w-5 h-5" />
+                  <span>View Hindi PDF</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {currentView === 'chat' && (
+          <div className="flex flex-col h-[calc(100vh-10rem)] bg-white rounded-3xl shadow-sm border border-krishna-100 overflow-hidden">
+            {/* Chat Messages */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {messages.map((m) => (
+                <div 
+                  key={m.id} 
+                  className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div 
+                    className={`max-w-[85%] rounded-2xl px-4 py-3 ${
+                      m.role === 'user' 
+                        ? 'bg-peacock-700 text-white rounded-tr-none shadow-md shadow-peacock-100' 
+                        : 'bg-krishna-50 text-krishna-800 rounded-tl-none border border-krishna-100'
+                    }`}
+                  >
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{m.text}</p>
+                    {m.citations && m.citations.length > 0 && (
+                      <div className="mt-3 pt-2 border-t border-krishna-200/50">
+                        <p className="text-[10px] font-bold text-krishna-400 uppercase tracking-wider mb-1">Sources</p>
+                        <div className="flex flex-wrap gap-2">
+                          {m.citations.map((url, i) => (
+                            <a 
+                              key={i} 
+                              href={url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center px-2 py-0.5 bg-white border border-krishna-200 rounded-full text-[10px] text-peacock-700 hover:bg-peacock-50 transition-colors truncate max-w-[150px]"
+                            >
+                              <ExternalLink className="w-2.5 h-2.5 mr-1" />
+                              Source {i + 1}
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {isLoading && (
+                <div className="flex justify-start">
+                  <div className="bg-krishna-50 border border-krishna-100 rounded-2xl rounded-tl-none px-4 py-3 flex space-x-1 items-center">
+                    <div className="w-1.5 h-1.5 bg-peacock-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                    <div className="w-1.5 h-1.5 bg-peacock-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                    <div className="w-1.5 h-1.5 bg-peacock-400 rounded-full animate-bounce"></div>
+                  </div>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Input Area */}
+            <div className="p-4 bg-krishna-50 border-t border-krishna-100">
+              <div className="flex items-center space-x-2 bg-white rounded-2xl border border-krishna-200 p-1 pr-2 shadow-inner focus-within:ring-2 focus-within:ring-peacock-500 focus-within:border-transparent transition-all">
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                  placeholder="Ask Krishna a question..."
+                  className="flex-1 bg-transparent border-none focus:ring-0 py-3 px-4 text-sm"
+                  disabled={isLoading}
+                />
+                <button
+                  onClick={handleSendMessage}
+                  disabled={!input.trim() || isLoading}
+                  className={`p-2.5 rounded-xl transition-all ${
+                    !input.trim() || isLoading 
+                      ? 'bg-krishna-100 text-krishna-300' 
+                      : 'bg-peacock-700 text-white shadow-lg shadow-peacock-100 active:scale-90'
+                  }`}
+                >
+                  <Send className="w-5 h-5" />
+                </button>
+              </div>
+              <p className="text-[10px] text-center text-krishna-400 mt-3">
+                Gita AI Assistant may provide helpful guidance based on the Gita. Always use your own wisdom.
               </p>
             </div>
-          )}
-          {currentView === 'privacy' && (
-            <div className="p-8 max-w-3xl mx-auto bg-white min-h-screen">
-              <button onClick={() => setCurrentView('home')} className="mb-4 text-krishna-500 flex items-center hover:text-krishna-700">
-                <ArrowLeft className="w-4 h-4 mr-2"/>Back
-              </button>
-              <h1 className="text-2xl font-bold mb-4">Privacy Policy</h1>
-              <p className="text-krishna-700 leading-relaxed">
-                Gita AI Assistant is designed for students. We do not collect, store, or share any personal information on our servers. 
-                Your chat sessions are stored locally in your browser's "LocalStorage" for your own reference and are not accessible to us or any third parties. 
-                AI responses are generated via the Google Gemini API using the queries you provide.
-              </p>
+          </div>
+        )}
+
+        {currentView === 'resources' && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300 pb-10">
+            <div className="flex items-center space-x-3 mb-2 px-1">
+              <FileText className="w-6 h-6 text-peacock-700" />
+              <h2 className="text-2xl font-serif font-bold text-krishna-900">Study Resources</h2>
             </div>
-          )}
-          {currentView === 'chapter' && (
-            <div className="p-4 max-w-3xl mx-auto">
-               <button onClick={() => setCurrentView('home')} className="mb-4 text-krishna-500 flex items-center hover:text-krishna-700">
-                 <ArrowLeft className="w-4 h-4 mr-2"/>Back
-               </button>
-               <div className="bg-white p-6 rounded-2xl shadow-lg border border-krishna-100">
-                 <h2 className="text-2xl font-serif font-bold text-krishna-900">{CHAPTERS.find(c => c.id === selectedChapterId)?.sanskritName}</h2>
-                 <h3 className="text-peacock-600 font-medium italic mt-1">{CHAPTERS.find(c => c.id === selectedChapterId)?.englishName}</h3>
-                 <p className="mt-4 text-krishna-800 leading-relaxed">{CHAPTERS.find(c => c.id === selectedChapterId)?.summary}</p>
-                 <a href={CHAPTERS.find(c => c.id === selectedChapterId)?.detailedUrl} target="_blank" rel="noreferrer" className="mt-6 inline-flex items-center text-peacock-600 font-bold hover:underline">
-                   Read Full Chapter <ExternalLink className="ml-2 w-4 h-4"/>
-                 </a>
-               </div>
+            
+            <div className="grid grid-cols-1 gap-4">
+              {STUDY_RESOURCES.map((resource, index) => (
+                <a 
+                  key={index}
+                  href={resource.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-white rounded-2xl p-5 border border-krishna-200 hover:border-peacock-200 hover:shadow-md transition-all group"
+                >
+                  <div className="flex justify-between items-start mb-3">
+                    <div className={`p-2 rounded-xl ${
+                      resource.type === 'video' ? 'bg-red-50 text-red-600' :
+                      resource.type === 'book' ? 'bg-krishna-50 text-krishna-700' :
+                      'bg-emerald-50 text-emerald-600'
+                    }`}>
+                      {resource.type === 'video' && <Youtube className="w-5 h-5" />}
+                      {resource.type === 'book' && <Book className="w-5 h-5" />}
+                      {resource.type === 'web' && <Globe className="w-5 h-5" />}
+                    </div>
+                    {resource.isFavorite && (
+                      <Heart className="w-4 h-4 text-red-500 fill-red-500" />
+                    )}
+                  </div>
+                  <h3 className="font-bold text-krishna-900 mb-1 group-hover:text-peacock-700 transition-colors">
+                    {resource.title}
+                  </h3>
+                  <p className="text-krishna-500 text-sm leading-relaxed">
+                    {resource.description}
+                  </p>
+                  <div className="mt-4 flex items-center text-xs font-bold text-peacock-700 uppercase tracking-wider">
+                    Open Resource <ExternalLink className="w-3 h-3 ml-1" />
+                  </div>
+                </a>
+              ))}
+              
+              <div className="bg-gradient-to-br from-krishna-800 to-krishna-900 rounded-2xl p-6 text-white shadow-xl mt-4">
+                <Music className="w-8 h-8 text-gold-400 mb-4" />
+                <h3 className="text-xl font-bold mb-2">Listen & Learn</h3>
+                <p className="text-krishna-300 text-sm mb-6 leading-relaxed">
+                  Deepen your understanding through traditional chants and expert commentaries available in our curated collection.
+                </p>
+                <button 
+                  onClick={() => window.open('https://www.youtube.com/results?search_query=bhagavad+gita+chanting', '_blank')}
+                  className="w-full bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl py-3 text-sm font-bold transition-colors"
+                >
+                  Browse More on YouTube
+                </button>
+              </div>
             </div>
-          )}
-        </main>
-        {currentView !== 'privacy' && <BottomNav currentView={currentView} setView={setCurrentView} />}
-      </div>
-    </HashRouter>
+          </div>
+        )}
+      </main>
+
+      <BottomNav currentView={currentView} setView={setCurrentView} />
+    </div>
   );
 };
 
