@@ -11,7 +11,7 @@ interface BottomNavProps {
 const BottomNav: React.FC<BottomNavProps> = ({ currentView, setView }) => {
   const navItems = [
     { id: 'home', label: 'Chapters', icon: Home },
-    { id: 'chat', label: 'Ask Krishaa', icon: MessageCircle },
+    { id: 'chat', label: 'Ask Krisha', icon: MessageCircle },
     { id: 'resources', label: 'Resources', icon: FileText },
   ];
 
