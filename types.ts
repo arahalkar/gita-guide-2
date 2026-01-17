@@ -16,11 +16,4 @@ export interface ChatMessage {
   citations?: string[];
 }
 
-export interface SavedVerse {
-  verse: string;
-  translation: string;
-  lesson: string;
-  dateSaved: string;
-}
-
-export type View = 'home' | 'chapter' | 'chat' | 'resources' | 'privacy' | 'practice';
+export type View = 'home' | 'chapter' | 'chat' | 'resources' | 'privacy';

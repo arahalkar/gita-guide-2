@@ -2,129 +2,26 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { HashRouter } from 'react-router-dom';
 import { 
-  Send, ArrowLeft, ExternalLink, Sparkles, Book, Download, 
-  Info, Shield, Trash2, Share2, Quote, Search, 
-  X, Volume2, Star, Wind, Bookmark
+  Send, ArrowLeft, ExternalLink, Sparkles, Book, Trash2, 
+  Quote, Search, X
 } from 'lucide-react';
 import { CHAPTERS, GITA_PDF_URL, GITA_QUOTES } from './constants';
-import { ChatMessage, View, SavedVerse } from './types';
-import { sendGitaQuestion, generateSpeech, decodeBase64, decodeAudioData } from './services/geminiService';
+import { ChatMessage, View } from './types';
+import { sendGitaQuestion } from './services/geminiService';
 import ChapterCard from './components/ChapterCard';
 import BottomNav from './components/BottomNav';
 import { PeacockFeather, PeacockBackground } from './components/PeacockFeather';
-
-// --- Practice Component (Fixing Hook Violation) ---
-const Practice: React.FC = () => {
-  const [timer, setTimer] = useState(0);
-  const [isActive, setIsActive] = useState(false);
-  
-  useEffect(() => {
-    let interval: any;
-    if (isActive && timer > 0) {
-      interval = setInterval(() => setTimer(t => t - 1), 1000);
-    } else if (timer === 0) {
-      setIsActive(false);
-    }
-    return () => clearInterval(interval);
-  }, [isActive, timer]);
-
-  const startTimer = (mins: number) => {
-    setTimer(mins * 60);
-    setIsActive(true);
-  };
-
-  return (
-    <div className="p-4 pb-24 max-w-3xl mx-auto flex flex-col items-center">
-      <header className="mb-12 text-center pt-8">
-        <Wind className="h-12 w-12 text-peacock-600 mx-auto mb-4 animate-pulse" />
-        <h1 className="text-3xl font-serif font-bold text-krishna-900">Dhyana Yoga</h1>
-        <p className="text-krishna-600">Cultivate a steady mind for study</p>
-      </header>
-
-      <div className="relative w-64 h-64 flex items-center justify-center mb-12">
-         <div className={`absolute inset-0 bg-peacock-100 rounded-full ${isActive ? 'animate-ping opacity-20' : 'opacity-10'}`}></div>
-         <div className={`w-48 h-48 rounded-full border-4 border-peacock-200 flex flex-col items-center justify-center bg-white shadow-xl z-10 transition-transform duration-1000 ${isActive ? 'scale-110' : 'scale-100'}`}>
-            <span className="text-4xl font-mono font-bold text-peacock-800">
-              {Math.floor(timer / 60)}:{(timer % 60).toString().padStart(2, '0')}
-            </span>
-            <p className="text-[10px] uppercase font-bold text-peacock-400 mt-2">{isActive ? 'Focus' : 'Ready'}</p>
-         </div>
-      </div>
-
-      <div className="grid grid-cols-3 gap-4 w-full max-w-xs mb-8">
-        {[1, 3, 5].map(m => (
-          <button key={m} onClick={() => startTimer(m)} className="py-2 bg-white border border-peacock-100 rounded-xl font-bold text-peacock-700 shadow-sm hover:bg-peacock-50 transition-colors">
-            {m}m
-          </button>
-        ))}
-      </div>
-
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-krishna-100 w-full text-center italic text-krishna-700">
-        <Quote className="w-6 h-6 text-peacock-200 mb-2 mx-auto" />
-        "For him who has conquered the mind, the mind is the best of friends." (Ch 6, V 6)
-      </div>
-    </div>
-  );
-};
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>('home');
   const [selectedChapterId, setSelectedChapterId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [savedVerses, setSavedVerses] = useState<SavedVerse[]>([]);
-  const [isTtsLoading, setIsTtsLoading] = useState(false);
-  const audioContextRef = useRef<AudioContext | null>(null);
   
-  // Local Storage for bookmarks
-  useEffect(() => {
-    const saved = localStorage.getItem('gita_bookmarks');
-    if (saved) setSavedVerses(JSON.parse(saved));
-  }, []);
-
-  const saveToBookmarks = (quote: typeof GITA_QUOTES[0]) => {
-    const exists = savedVerses.some(v => v.verse === quote.verse);
-    let newList;
-    if (exists) {
-      newList = savedVerses.filter(v => v.verse !== quote.verse);
-    } else {
-      newList = [...savedVerses, { ...quote, dateSaved: new Date().toISOString() }];
-    }
-    setSavedVerses(newList);
-    localStorage.setItem('gita_bookmarks', JSON.stringify(newList));
-  };
-
   const dailyQuote = useMemo(() => {
     const today = new Date();
     const index = (today.getFullYear() + today.getMonth() + today.getDate()) % GITA_QUOTES.length;
     return GITA_QUOTES[index];
   }, []);
-
-  const handlePlayTts = async (text: string) => {
-    if (isTtsLoading) return;
-    setIsTtsLoading(true);
-    try {
-      if (!audioContextRef.current) {
-        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-      }
-      const audioCtx = audioContextRef.current;
-      if (audioCtx.state === 'suspended') {
-        await audioCtx.resume();
-      }
-
-      const base64 = await generateSpeech(text);
-      const bytes = decodeBase64(base64);
-      const buffer = await decodeAudioData(bytes, audioCtx);
-      const source = audioCtx.createBufferSource();
-      source.buffer = buffer;
-      source.connect(audioCtx.destination);
-      source.start(0);
-    } catch (err) {
-      console.error("TTS Playback failed:", err);
-      alert("Audio playback failed. Please check your internet connection.");
-    } finally {
-      setIsTtsLoading(false);
-    }
-  };
 
   const filteredChapters = useMemo(() => {
     return CHAPTERS.filter(chap => 
@@ -175,29 +72,29 @@ const App: React.FC = () => {
         <p className="text-krishna-700">Wisdom for the modern student</p>
       </header>
 
-      <div className="mb-6 bg-gradient-to-br from-peacock-50 to-white rounded-2xl p-6 shadow-sm border border-peacock-100 relative overflow-hidden group">
+      <div className="mb-6 bg-gradient-to-br from-peacock-50 to-white rounded-2xl p-6 shadow-sm border border-peacock-100 relative overflow-hidden">
         <div className="relative z-10">
           <div className="flex items-center justify-between mb-3">
             <span className="text-[10px] font-bold text-peacock-600 uppercase tracking-widest flex items-center">Daily Wisdom</span>
-            <div className="flex space-x-2">
-              <button 
-                onClick={() => handlePlayTts(`${dailyQuote.verse}. ${dailyQuote.translation}`)} 
-                className={`p-2 rounded-full hover:bg-peacock-100 transition-colors ${isTtsLoading ? 'animate-pulse text-peacock-300' : 'text-peacock-600'}`}
-              >
-                <Volume2 className="w-4 h-4" />
-              </button>
-              <button 
-                onClick={() => saveToBookmarks(dailyQuote)}
-                className={`p-2 rounded-full hover:bg-gold-50 transition-colors ${savedVerses.some(v => v.verse === dailyQuote.verse) ? 'text-gold-500' : 'text-krishna-300'}`}
-              >
-                <Star className={`w-4 h-4 ${savedVerses.some(v => v.verse === dailyQuote.verse) ? 'fill-current' : ''}`} />
-              </button>
-            </div>
+            <span className="text-[10px] text-krishna-400 font-medium">Chapter Quote</span>
           </div>
-          <p className="text-krishna-900 font-serif italic text-lg leading-relaxed mb-3">"{dailyQuote.verse}"</p>
-          <p className="text-krishna-700 text-sm mb-4">"{dailyQuote.translation}"</p>
+          
+          {/* Devnagari Script */}
+          <p className="text-krishna-950 font-serif text-2xl leading-relaxed mb-2 text-center">
+            {dailyQuote.devnagari}
+          </p>
+          
+          {/* Transliteration */}
+          <p className="text-krishna-800 font-serif italic text-base leading-relaxed mb-4 text-center opacity-80">
+            "{dailyQuote.verse}"
+          </p>
+
+          <p className="text-krishna-700 text-sm mb-4 border-t border-peacock-100 pt-4 italic">
+            {dailyQuote.translation}
+          </p>
+
           <div className="bg-peacock-600/5 p-3 rounded-xl border border-peacock-100/50">
-            <p className="text-peacock-800 text-xs font-medium"><span className="font-bold">Student Tip:</span> {dailyQuote.lesson}</p>
+            <p className="text-peacock-800 text-xs font-medium"><span className="font-bold">Student Lesson:</span> {dailyQuote.lesson}</p>
           </div>
         </div>
       </div>
@@ -219,25 +116,6 @@ const App: React.FC = () => {
         ))}
       </div>
 
-      {savedVerses.length > 0 && (
-        <div className="mt-12">
-          <h3 className="text-sm font-bold text-krishna-400 uppercase tracking-widest mb-4 flex items-center">
-            <Bookmark className="w-4 h-4 mr-2" /> Saved Insights
-          </h3>
-          <div className="space-y-3">
-            {savedVerses.map((v, i) => (
-              <div key={i} className="bg-white p-4 rounded-xl border border-gold-100 shadow-sm flex justify-between items-start">
-                <div>
-                  <p className="text-xs font-serif italic text-krishna-900">"{v.verse}"</p>
-                  <p className="text-[10px] text-krishna-500 mt-1">{v.translation.substring(0, 60)}...</p>
-                </div>
-                <button onClick={() => saveToBookmarks(v as any)} className="text-gold-500 p-1"><X className="w-3 h-3" /></button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       <footer className="mt-12 text-center pb-8 opacity-40">
         <p className="text-[10px] text-krishna-700 uppercase tracking-widest">Gita AI Assistant • 2025</p>
         <button onClick={() => setCurrentView('privacy')} className="text-[10px] underline mt-2">Privacy Policy</button>
@@ -250,7 +128,6 @@ const App: React.FC = () => {
       <div className="min-h-screen bg-krishna-50 font-sans text-krishna-900 selection:bg-peacock-200 selection:text-peacock-900">
         <main className="min-h-screen">
           {currentView === 'home' && renderHome()}
-          {currentView === 'practice' && <Practice />}
           {currentView === 'chat' && (
              <div className="flex flex-col h-screen bg-krishna-50 pb-[64px]">
                 <div className="bg-white border-b border-krishna-200 p-4 shadow-sm z-10 flex items-center justify-between">

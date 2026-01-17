@@ -6,51 +6,61 @@ export const GITA_PDF_URL = "./gita-hindi.pdf";
 
 export const GITA_QUOTES = [
   {
+    devnagari: "कर्मण्येवाधिकारस्ते मा फलेषु कदाचन।",
     verse: "Karmanye vadhikaraste ma phaleshu kadachana",
     translation: "You have a right to perform your prescribed duties, but you are not entitled to the fruits of your actions.",
     lesson: "Focus on your studies and exams, not just the grades!"
   },
   {
+    devnagari: "योगस्थः कुरु कर्माणि सङ्गं त्यक्त्वा धनञ्जय।",
     verse: "Yoga-sthah kuru karmani sangam tyaktva dhananjaya",
     translation: "Be steadfast in Yoga, O Arjuna. Perform your duty and abandon all attachment to success or failure.",
     lesson: "Stay balanced even when school gets stressful."
   },
   {
+    devnagari: "उद्धरेदात्मनात्मानं नात्मानमवसादयेत्।",
     verse: "uddhared atmanatmanam natmanam avasadayet",
     translation: "Elevate yourself through the power of your mind, and do not degrade yourself.",
     lesson: "You are your own best friend. Believe in yourself!"
   },
   {
+    devnagari: "श्रेयान्स्वधर्मो विगुणः परधर्मात्स्वनुष्ठितात्।",
     verse: "shreyan swa-dharmo vigunah para-dharmat sw-anushthitat",
     translation: "It is far better to perform one’s own duty, even though imperfectly, than another’s duty perfectly.",
     lesson: "Don't compare your journey to others. Follow your own path."
   },
   {
+    devnagari: "क्रोधाद्भवति सम्मोहः सम्मोहात्स्मृतिविभ्रमः।",
     verse: "krodhad bhavati sammohah sammohat smriti-vibhramah",
     translation: "From anger comes delusion; from delusion comes loss of memory.",
     lesson: "Keep your cool during arguments or tough assignments to stay sharp."
   },
   {
+    devnagari: "यथा दीपो निवातस्थो नेङ्गते सोपमा स्मृता।",
     verse: "Yatha dipo nivatastho nengate sopama smrita",
     translation: "As a lamp in a windless place does not flicker, so the disciplined mind remains steady.",
     lesson: "Practice focus. A steady mind is a superpower for learning."
   },
   {
+    devnagari: "सत्त्वानुरूपा सर्वस्य श्रद्धा भवति भारत।",
     verse: "Sattvanurupa sarvasya shraddha bhavati bharata",
     translation: "The faith of all humans is according to their nature.",
     lesson: "Respect everyone's unique way of learning and growing."
   },
   {
+    devnagari: "धूमेनाव्रियते वह्निर्यथादर्शो मलेन च।",
     verse: "dharmenavrtta-prajnasya",
     translation: "Knowledge is covered by desire, which is as insatiable as fire.",
     lesson: "Don't let distractions get in the way of your goals."
   },
   {
+    devnagari: "अशान्तस्य कुतः सुखम्।",
     verse: "ashantasy-akutah sukham",
     translation: "For the unsteady there is no peace, and for the peaceless there is no happiness.",
     lesson: "Take breaks to meditate or breathe. Peace leads to better results."
   },
   {
+    devnagari: "तस्मात्सर्वेषु कालेषु मामनुस्मर युध्य च।",
     verse: "Tasmat sarveshu kaleshu mam anusmara yudhya cha",
     translation: "Therefore, at all times, remember Me and fight.",
     lesson: "Keep your values in mind even when life gets competitive."
