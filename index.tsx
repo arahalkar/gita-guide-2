@@ -15,14 +15,22 @@ root.render(
   </React.StrictMode>
 );
 
-// Service Worker Registration for PWA support
+// Resilient Service Worker Registration
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    // Registered from root to ensure it controls the entire domain
-    navigator.serviceWorker.register('/sw.js').then(registration => {
-      console.log('SW registered: ', registration);
-    }).catch(registrationError => {
-      console.log('SW registration failed: ', registrationError);
-    });
+    // Determine the correct script URL relative to the current origin
+    // This helps avoid origin mismatch errors in preview environments.
+    const swUrl = new URL('./sw.js', window.location.href).href;
+    
+    // Only attempt registration if the script is on the same origin
+    if (new URL(swUrl).origin === window.location.origin) {
+      navigator.serviceWorker.register(swUrl).then(registration => {
+        console.log('SW registered successfully');
+      }).catch(err => {
+        console.warn('SW registration skipped or failed:', err.message);
+      });
+    } else {
+      console.warn('SW registration skipped: Script origin mismatch');
+    }
   });
 }

@@ -2,38 +2,129 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { HashRouter } from 'react-router-dom';
 import { 
-  Send, 
-  ArrowLeft, 
-  ExternalLink, 
-  Sparkles, 
-  Book, 
-  Download, 
-  Info, 
-  Shield, 
-  Trash2,
-  Share2,
-  CheckCircle,
-  Quote,
-  Search,
-  X
+  Send, ArrowLeft, ExternalLink, Sparkles, Book, Download, 
+  Info, Shield, Trash2, Share2, Quote, Search, 
+  X, Volume2, Star, Wind, Bookmark
 } from 'lucide-react';
 import { CHAPTERS, GITA_PDF_URL, GITA_QUOTES } from './constants';
-import { Chapter, ChatMessage, View } from './types';
-import { sendGitaQuestion } from './services/geminiService';
+import { ChatMessage, View, SavedVerse } from './types';
+import { sendGitaQuestion, generateSpeech, decodeBase64, decodeAudioData } from './services/geminiService';
 import ChapterCard from './components/ChapterCard';
 import BottomNav from './components/BottomNav';
 import { PeacockFeather, PeacockBackground } from './components/PeacockFeather';
+
+// --- Practice Component (Fixing Hook Violation) ---
+const Practice: React.FC = () => {
+  const [timer, setTimer] = useState(0);
+  const [isActive, setIsActive] = useState(false);
+  
+  useEffect(() => {
+    let interval: any;
+    if (isActive && timer > 0) {
+      interval = setInterval(() => setTimer(t => t - 1), 1000);
+    } else if (timer === 0) {
+      setIsActive(false);
+    }
+    return () => clearInterval(interval);
+  }, [isActive, timer]);
+
+  const startTimer = (mins: number) => {
+    setTimer(mins * 60);
+    setIsActive(true);
+  };
+
+  return (
+    <div className="p-4 pb-24 max-w-3xl mx-auto flex flex-col items-center">
+      <header className="mb-12 text-center pt-8">
+        <Wind className="h-12 w-12 text-peacock-600 mx-auto mb-4 animate-pulse" />
+        <h1 className="text-3xl font-serif font-bold text-krishna-900">Dhyana Yoga</h1>
+        <p className="text-krishna-600">Cultivate a steady mind for study</p>
+      </header>
+
+      <div className="relative w-64 h-64 flex items-center justify-center mb-12">
+         <div className={`absolute inset-0 bg-peacock-100 rounded-full ${isActive ? 'animate-ping opacity-20' : 'opacity-10'}`}></div>
+         <div className={`w-48 h-48 rounded-full border-4 border-peacock-200 flex flex-col items-center justify-center bg-white shadow-xl z-10 transition-transform duration-1000 ${isActive ? 'scale-110' : 'scale-100'}`}>
+            <span className="text-4xl font-mono font-bold text-peacock-800">
+              {Math.floor(timer / 60)}:{(timer % 60).toString().padStart(2, '0')}
+            </span>
+            <p className="text-[10px] uppercase font-bold text-peacock-400 mt-2">{isActive ? 'Focus' : 'Ready'}</p>
+         </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4 w-full max-w-xs mb-8">
+        {[1, 3, 5].map(m => (
+          <button key={m} onClick={() => startTimer(m)} className="py-2 bg-white border border-peacock-100 rounded-xl font-bold text-peacock-700 shadow-sm hover:bg-peacock-50 transition-colors">
+            {m}m
+          </button>
+        ))}
+      </div>
+
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-krishna-100 w-full text-center italic text-krishna-700">
+        <Quote className="w-6 h-6 text-peacock-200 mb-2 mx-auto" />
+        "For him who has conquered the mind, the mind is the best of friends." (Ch 6, V 6)
+      </div>
+    </div>
+  );
+};
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>('home');
   const [selectedChapterId, setSelectedChapterId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [savedVerses, setSavedVerses] = useState<SavedVerse[]>([]);
+  const [isTtsLoading, setIsTtsLoading] = useState(false);
+  const audioContextRef = useRef<AudioContext | null>(null);
   
+  // Local Storage for bookmarks
+  useEffect(() => {
+    const saved = localStorage.getItem('gita_bookmarks');
+    if (saved) setSavedVerses(JSON.parse(saved));
+  }, []);
+
+  const saveToBookmarks = (quote: typeof GITA_QUOTES[0]) => {
+    const exists = savedVerses.some(v => v.verse === quote.verse);
+    let newList;
+    if (exists) {
+      newList = savedVerses.filter(v => v.verse !== quote.verse);
+    } else {
+      newList = [...savedVerses, { ...quote, dateSaved: new Date().toISOString() }];
+    }
+    setSavedVerses(newList);
+    localStorage.setItem('gita_bookmarks', JSON.stringify(newList));
+  };
+
   const dailyQuote = useMemo(() => {
     const today = new Date();
     const index = (today.getFullYear() + today.getMonth() + today.getDate()) % GITA_QUOTES.length;
     return GITA_QUOTES[index];
   }, []);
+
+  const handlePlayTts = async (text: string) => {
+    if (isTtsLoading) return;
+    setIsTtsLoading(true);
+    try {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      const audioCtx = audioContextRef.current;
+      if (audioCtx.state === 'suspended') {
+        await audioCtx.resume();
+      }
+
+      const base64 = await generateSpeech(text);
+      const bytes = decodeBase64(base64);
+      const buffer = await decodeAudioData(bytes, audioCtx);
+      const source = audioCtx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(audioCtx.destination);
+      source.start(0);
+    } catch (err) {
+      console.error("TTS Playback failed:", err);
+      alert("Audio playback failed. Please check your internet connection.");
+    } finally {
+      setIsTtsLoading(false);
+    }
+  };
 
   const filteredChapters = useMemo(() => {
     return CHAPTERS.filter(chap => 
@@ -43,93 +134,31 @@ const App: React.FC = () => {
     );
   }, [searchQuery]);
 
-  const WELCOME_MESSAGE: ChatMessage = {
+  const [messages, setMessages] = useState<ChatMessage[]>([{
     id: 'welcome',
     role: 'model',
-    text: "Namaste! I am your Gita AI Assistant. How can I help you today? You can ask me about duty, friendship, focus, or any specific chapter from the Bhagavad Gita."
-  };
-
-  const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE]);
+    text: "Namaste! I am your Gita AI Assistant. Ask me anything about your studies, focus, or life duties."
+  }]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
   useEffect(() => {
-    scrollToBottom();
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, currentView]);
-
-  const handleChapterClick = (id: number) => {
-    setSelectedChapterId(id);
-    setCurrentView('chapter');
-    window.scrollTo(0,0);
-  };
-
-  const handleClearChat = () => {
-    if (window.confirm("Do you want to clear your conversation history?")) {
-      setMessages([WELCOME_MESSAGE]);
-    }
-  };
-
-  const handleShare = async () => {
-    const shareData = {
-      title: 'Gita AI Assistant',
-      text: "I found this amazing Gita AI Assistant for students! It answers questions about focus and duty using the Bhagavad Gita. 🙏",
-      url: window.location.origin
-    };
-
-    try {
-      if (navigator.share) {
-        await navigator.share(shareData);
-      } else {
-        await navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`);
-        alert('Link copied to clipboard!');
-      }
-    } catch (err) {
-      console.error('Error sharing:', err);
-    }
-  };
 
   const handleSendMessage = async () => {
     if (!input.trim() || isLoading) return;
-
-    const userMsg: ChatMessage = {
-      id: Date.now().toString(),
-      role: 'user',
-      text: input
-    };
-
+    const userMsg: ChatMessage = { id: Date.now().toString(), role: 'user', text: input };
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setIsLoading(true);
-
     try {
-      const history = messages
-        .filter(m => m.id !== 'welcome')
-        .map(m => ({
-          role: m.role,
-          parts: [{ text: m.text }]
-        }));
-
+      const history = messages.filter(m => m.id !== 'welcome').map(m => ({ role: m.role, parts: [{ text: m.text }] }));
       const response = await sendGitaQuestion(userMsg.text, history);
-
-      const botMsg: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        role: 'model',
-        text: response.text,
-        citations: response.citations
-      };
-      setMessages(prev => [...prev, botMsg]);
+      setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: response.text, citations: response.citations }]);
     } catch (error) {
-      setMessages(prev => [...prev, {
-        id: Date.now().toString(),
-        role: 'model',
-        text: "I'm having trouble connecting to the source right now. Please check your internet or try again later.",
-        isError: true
-      }]);
+      setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: "Error connecting to AI.", isError: true }]);
     } finally {
       setIsLoading(false);
     }
@@ -144,21 +173,26 @@ const App: React.FC = () => {
         </div>
         <h1 className="text-4xl font-serif font-bold text-krishna-900 mb-2">Gita AI Assistant</h1>
         <p className="text-krishna-700">Wisdom for the modern student</p>
-        <div className="mt-4 mx-auto w-24 h-1 bg-gradient-to-r from-krishna-600 to-peacock-500 rounded-full"></div>
       </header>
 
-      <div className="mb-6 bg-gradient-to-br from-peacock-50 to-white rounded-2xl p-6 shadow-sm border border-peacock-100 relative overflow-hidden">
-        <Quote className="absolute -top-2 -left-2 w-12 h-12 text-peacock-200 opacity-20 transform -rotate-12" />
+      <div className="mb-6 bg-gradient-to-br from-peacock-50 to-white rounded-2xl p-6 shadow-sm border border-peacock-100 relative overflow-hidden group">
         <div className="relative z-10">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-[10px] font-bold text-peacock-600 uppercase tracking-widest flex items-center">
-              Daily Wisdom
-              <span className="ml-2 flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-green-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-              </span>
-            </span>
-            <span className="text-[10px] text-krishna-400 font-medium">{new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+            <span className="text-[10px] font-bold text-peacock-600 uppercase tracking-widest flex items-center">Daily Wisdom</span>
+            <div className="flex space-x-2">
+              <button 
+                onClick={() => handlePlayTts(`${dailyQuote.verse}. ${dailyQuote.translation}`)} 
+                className={`p-2 rounded-full hover:bg-peacock-100 transition-colors ${isTtsLoading ? 'animate-pulse text-peacock-300' : 'text-peacock-600'}`}
+              >
+                <Volume2 className="w-4 h-4" />
+              </button>
+              <button 
+                onClick={() => saveToBookmarks(dailyQuote)}
+                className={`p-2 rounded-full hover:bg-gold-50 transition-colors ${savedVerses.some(v => v.verse === dailyQuote.verse) ? 'text-gold-500' : 'text-krishna-300'}`}
+              >
+                <Star className={`w-4 h-4 ${savedVerses.some(v => v.verse === dailyQuote.verse) ? 'fill-current' : ''}`} />
+              </button>
+            </div>
           </div>
           <p className="text-krishna-900 font-serif italic text-lg leading-relaxed mb-3">"{dailyQuote.verse}"</p>
           <p className="text-krishna-700 text-sm mb-4">"{dailyQuote.translation}"</p>
@@ -174,329 +208,117 @@ const App: React.FC = () => {
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search chapters (e.g., Karma, Focus, Duty)..."
-          className="w-full bg-white border border-krishna-100 rounded-full py-3 pl-10 pr-10 text-sm focus:ring-2 focus:ring-peacock-400 outline-none transition-all shadow-sm"
+          placeholder="Search Karma, Focus, Duty..."
+          className="w-full bg-white border border-krishna-100 rounded-full py-3 pl-10 pr-10 text-sm focus:ring-2 focus:ring-peacock-400 outline-none shadow-sm"
         />
-        {searchQuery && (
-          <button 
-            onClick={() => setSearchQuery('')}
-            className="absolute right-4 top-1/2 transform -translate-y-1/2 text-krishna-400 hover:text-krishna-600"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        )}
       </div>
       
-      {filteredChapters.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filteredChapters.map(chapter => (
-            <ChapterCard key={chapter.id} chapter={chapter} onClick={handleChapterClick} />
-          ))}
-        </div>
-      ) : (
-        <div className="text-center py-12 bg-white/50 rounded-2xl border border-dashed border-krishna-200">
-          <p className="text-krishna-400 text-sm">No chapters found matching "{searchQuery}"</p>
-          <button onClick={() => setSearchQuery('')} className="mt-2 text-peacock-600 text-xs font-bold uppercase tracking-wider">Clear Search</button>
-        </div>
-      )}
-
-      <div className="mt-8 flex justify-center">
-        <button 
-          onClick={handleShare}
-          className="flex items-center px-6 py-3 bg-white text-krishna-700 rounded-full shadow-md border border-krishna-100 font-medium hover:bg-krishna-50 transition-colors"
-        >
-          <Share2 className="w-4 h-4 mr-2" /> Share App
-        </button>
-      </div>
-
-      <footer className="mt-12 text-center pb-8">
-        <div className="flex flex-col items-center space-y-3 opacity-60">
-          <button 
-            onClick={() => setCurrentView('privacy')} 
-            className="text-xs text-krishna-700 hover:underline flex items-center justify-center mx-auto"
-          >
-            <Shield className="w-3 h-3 mr-1" /> Privacy Policy
-          </button>
-          <p className="text-[10px] text-krishna-400">Version 1.1.0</p>
-        </div>
-      </footer>
-    </div>
-  );
-
-  const renderChapterDetail = () => {
-    const chapter = CHAPTERS.find(c => c.id === selectedChapterId);
-    if (!chapter) return null;
-
-    return (
-      <div className="p-4 pb-24 max-w-3xl mx-auto min-h-screen bg-krishna-50">
-        <button 
-          onClick={() => setCurrentView('home')}
-          className="flex items-center text-krishna-700 font-medium mb-6 hover:underline"
-        >
-          <ArrowLeft className="w-4 h-4 mr-1" /> Back to Chapters
-        </button>
-
-        <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-krishna-100">
-          <div className="bg-gradient-to-br from-krishna-900 via-krishna-800 to-peacock-800 h-40 relative flex items-center justify-center overflow-hidden">
-            <PeacockBackground />
-            <div className="text-center relative z-10 p-4">
-               <span className="inline-block px-3 py-1 bg-white/10 text-gold-400 font-bold uppercase tracking-widest text-xs rounded-full mb-2 backdrop-blur-sm border border-white/20">
-                 Chapter {chapter.id}
-               </span>
-               <h1 className="text-2xl md:text-3xl font-serif font-bold text-white mt-1 drop-shadow-md">{chapter.sanskritName}</h1>
-               <p className="text-krishna-100 text-sm mt-1 opacity-90">{chapter.translation}</p>
-            </div>
-          </div>
-          
-          <div className="p-6 md:p-8">
-            <h2 className="text-xl font-bold text-krishna-900 mb-4 font-serif">{chapter.englishName}</h2>
-            
-            <div className="prose prose-stone max-w-none mb-8">
-              <p className="text-lg leading-relaxed text-krishna-900/80">
-                {chapter.summary}
-              </p>
-              <p className="mt-4 text-krishna-700 italic border-l-4 border-peacock-400 pl-4 bg-peacock-50 py-2 pr-2 rounded-r-lg">
-                This chapter of the Bhagavad Gita teaches us about focus and duty. 
-                Reflect on how this applies to your life as a student.
-              </p>
-            </div>
-
-            <div className="border-t border-krishna-100 pt-6">
-              <h3 className="text-sm font-bold text-krishna-400 uppercase tracking-wide mb-3">Resources</h3>
-              <a 
-                href={chapter.detailedUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-between p-4 rounded-lg bg-krishna-50 hover:bg-krishna-100 transition-colors border border-krishna-100 group"
-              >
-                <div className="flex items-center">
-                  <Book className="w-5 h-5 text-krishna-600 mr-3" />
-                  <span className="font-medium text-krishna-800">Read Detailed Commentary</span>
-                </div>
-                <ExternalLink className="w-4 h-4 text-krishna-400 group-hover:text-krishna-600" />
-              </a>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const renderChat = () => (
-    <div className="flex flex-col h-screen bg-krishna-50 pb-[64px]">
-      <div className="bg-white border-b border-krishna-200 p-4 shadow-sm z-10">
-        <div className="max-w-3xl mx-auto flex items-center justify-between">
-          <div className="flex items-center">
-            <div className="bg-peacock-100 p-2 rounded-full mr-3">
-              <Sparkles className="w-5 h-5 text-peacock-700" />
-            </div>
-            <div>
-              <h2 className="font-bold text-krishna-900 leading-tight">Gita AI Assistant</h2>
-              <p className="text-[10px] text-krishna-500 uppercase tracking-tighter">AI Guide</p>
-            </div>
-          </div>
-          <button 
-            onClick={handleClearChat}
-            className="p-2 text-krishna-400 hover:text-red-500 transition-colors"
-            title="Clear Chat"
-          >
-            <Trash2 className="w-5 h-5" />
-          </button>
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 max-w-3xl mx-auto w-full">
-        {messages.map((msg) => (
-          <div 
-            key={msg.id} 
-            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
-            <div 
-              className={`max-w-[85%] rounded-2xl p-4 shadow-sm ${
-                msg.role === 'user' 
-                  ? 'bg-krishna-700 text-white rounded-tr-none' 
-                  : 'bg-white text-krishna-900 border border-krishna-100 rounded-tl-none'
-              } ${msg.isError ? 'border-red-200 bg-red-50' : ''}`}
-            >
-              <p className="text-sm md:text-base leading-relaxed whitespace-pre-wrap">{msg.text}</p>
-              
-              {msg.citations && msg.citations.length > 0 && (
-                <div className="mt-4 pt-3 border-t border-krishna-100 text-xs">
-                  <p className="font-bold text-krishna-400 uppercase tracking-widest text-[9px] mb-2">Verified Sources</p>
-                  <div className="flex flex-col gap-2">
-                    {msg.citations.map((cite, idx) => {
-                      try {
-                        const url = new URL(cite);
-                        return (
-                          <a 
-                            key={idx} 
-                            href={cite} 
-                            target="_blank" 
-                            rel="noreferrer"
-                            className="flex items-center text-peacock-700 hover:underline bg-peacock-50/50 p-2 rounded border border-peacock-100/50"
-                          >
-                            <ExternalLink className="w-3 h-3 mr-2 flex-shrink-0" />
-                            <span className="truncate">{url.hostname.replace('www.', '')}</span>
-                          </a>
-                        );
-                      } catch {
-                        return (
-                          <a key={idx} href={cite} target="_blank" rel="noreferrer" className="text-peacock-700 underline">
-                            Source {idx + 1}
-                          </a>
-                        );
-                      }
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {filteredChapters.map(chapter => (
+          <ChapterCard key={chapter.id} chapter={chapter} onClick={(id) => { setSelectedChapterId(id); setCurrentView('chapter'); window.scrollTo(0,0); }} />
         ))}
-        {isLoading && (
-           <div className="flex justify-start">
-             <div className="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm border border-krishna-100 flex items-center space-x-2">
-               <div className="w-2 h-2 bg-peacock-400 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
-               <div className="w-2 h-2 bg-peacock-400 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
-               <div className="w-2 h-2 bg-peacock-400 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
-             </div>
-           </div>
-        )}
-        <div ref={messagesEndRef} />
       </div>
 
-      <div className="p-4 bg-white border-t border-krishna-200">
-        <div className="max-w-3xl mx-auto relative flex items-center">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-            placeholder="Ask Gita AI Assistant about life or duty..."
-            className="w-full pl-4 pr-12 py-3 rounded-full border border-krishna-300 focus:border-peacock-500 focus:ring-1 focus:ring-peacock-500 outline-none text-krishna-900 bg-krishna-50 transition-all placeholder-krishna-400"
-            disabled={isLoading}
-          />
-          <button 
-            onClick={handleSendMessage}
-            disabled={!input.trim() || isLoading}
-            className="absolute right-2 p-2 bg-peacock-600 text-white rounded-full hover:bg-peacock-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <Send className="w-4 h-4" />
-          </button>
-        </div>
-        <p className="text-[9px] text-center text-krishna-400 mt-2">AI guidance grounded in the Srimad Bhagavad Gita.</p>
-      </div>
-    </div>
-  );
-
-  const renderResources = () => (
-    <div className="p-4 pb-24 max-w-3xl mx-auto">
-      <header className="mb-8 pt-8">
-        <h1 className="text-3xl font-serif font-bold text-krishna-900 mb-2">Study Resources</h1>
-        <p className="text-krishna-600">Deepen your understanding</p>
-      </header>
-
-      <div className="space-y-6">
-        <div className="bg-gradient-to-br from-krishna-800 to-peacock-700 rounded-xl p-6 text-white shadow-lg overflow-hidden relative">
-           <div className="absolute top-0 right-0 w-32 h-32 opacity-10 transform rotate-45 translate-x-8 -translate-y-8">
-             <PeacockFeather className="w-full h-full" />
-           </div>
-
-          <div className="flex items-start justify-between relative z-10">
-             <div>
-               <h3 className="text-xl font-bold mb-2">Complete Gita PDF</h3>
-               <p className="text-peacock-100 text-sm mb-4">Read the full Hindi translation text.</p>
-               <a 
-                 href={GITA_PDF_URL} 
-                 target="_blank" 
-                 rel="noopener noreferrer"
-                 className="inline-flex items-center bg-white text-krishna-900 px-4 py-2 rounded-lg font-bold text-sm hover:bg-peacock-50 transition-colors shadow-sm"
-               >
-                 <Book className="w-4 h-4 mr-2" /> Open Hindi PDF
-               </a>
-             </div>
-             <Download className="w-16 h-16 text-white opacity-20" />
-          </div>
-        </div>
-
-        <div>
-          <h3 className="text-lg font-bold text-krishna-900 mb-4 flex items-center">
-            <Info className="w-5 h-5 text-peacock-600 mr-2" />
-            Chapter-wise Explanations
+      {savedVerses.length > 0 && (
+        <div className="mt-12">
+          <h3 className="text-sm font-bold text-krishna-400 uppercase tracking-widest mb-4 flex items-center">
+            <Bookmark className="w-4 h-4 mr-2" /> Saved Insights
           </h3>
-          <div className="bg-white rounded-xl shadow-sm border border-krishna-100 divide-y divide-krishna-50">
-            {CHAPTERS.map((chap) => (
-              <a 
-                key={chap.id}
-                href={chap.detailedUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-between p-4 hover:bg-krishna-50 transition-colors group"
-              >
+          <div className="space-y-3">
+            {savedVerses.map((v, i) => (
+              <div key={i} className="bg-white p-4 rounded-xl border border-gold-100 shadow-sm flex justify-between items-start">
                 <div>
-                  <span className="text-xs font-bold text-krishna-400 uppercase tracking-tighter">Chapter {chap.id}</span>
-                  <p className="text-krishna-800 font-medium group-hover:text-peacock-700">{chap.sanskritName}</p>
+                  <p className="text-xs font-serif italic text-krishna-900">"{v.verse}"</p>
+                  <p className="text-[10px] text-krishna-500 mt-1">{v.translation.substring(0, 60)}...</p>
                 </div>
-                <div className="flex items-center text-krishna-300 group-hover:text-peacock-500 transition-colors">
-                  <span className="text-[10px] mr-2 opacity-0 group-hover:opacity-100 font-medium">Read More</span>
-                  <ExternalLink className="w-4 h-4" />
-                </div>
-              </a>
+                <button onClick={() => saveToBookmarks(v as any)} className="text-gold-500 p-1"><X className="w-3 h-3" /></button>
+              </div>
             ))}
           </div>
         </div>
-      </div>
-    </div>
-  );
+      )}
 
-  const renderPrivacyPolicy = () => (
-    <div className="p-6 pb-24 max-w-3xl mx-auto bg-white min-h-screen">
-       <button 
-          onClick={() => setCurrentView('home')}
-          className="flex items-center text-krishna-700 font-medium mb-6 hover:underline"
-        >
-          <ArrowLeft className="w-4 h-4 mr-1" /> Back Home
-        </button>
-        
-        <h1 className="text-2xl font-bold text-krishna-900 mb-6">Privacy Policy</h1>
-        
-        <div className="prose prose-sm text-krishna-800">
-          <p><strong>Effective Date:</strong> {new Date().toLocaleDateString()}</p>
-          
-          <h3>1. Introduction</h3>
-          <p>This Privacy Policy describes how <strong>GenAI Developer</strong> (the "Developer") handles user information within the <strong>Gita AI Assistant</strong> mobile application (the "App"). We are committed to protecting user privacy.</p>
-
-          <h3>2. Data Collection</h3>
-          <p><strong>Gita AI Assistant</strong> does NOT collect, store, transmit, or sell any personal identifiable information (PII). This includes names, email addresses, phone numbers, or contacts. We do not require registration to use the App.</p>
-
-          <h3>3. AI Processing</h3>
-          <p>This App utilizes the Google Gemini API. When a user sends a query to the <strong>Gita AI Assistant</strong>, the text is sent to Google's servers for processing. No personal data or identifiers are attached to these requests. Chat history is stored locally on your device and is not saved on our servers.</p>
-
-          <h3>4. Permissions</h3>
-          <p>The <strong>Gita AI Assistant</strong> does not request access to the camera, microphone, or your device location.</p>
-
-          <h3>5. Contact</h3>
-          <p>If you have questions regarding this policy, please contact <strong>GenAI Developer</strong> through the support channel provided in the Google Play Store listing.</p>
-        </div>
+      <footer className="mt-12 text-center pb-8 opacity-40">
+        <p className="text-[10px] text-krishna-700 uppercase tracking-widest">Gita AI Assistant • 2025</p>
+        <button onClick={() => setCurrentView('privacy')} className="text-[10px] underline mt-2">Privacy Policy</button>
+      </footer>
     </div>
   );
 
   return (
     <HashRouter>
       <div className="min-h-screen bg-krishna-50 font-sans text-krishna-900 selection:bg-peacock-200 selection:text-peacock-900">
-        
         <main className="min-h-screen">
           {currentView === 'home' && renderHome()}
-          {currentView === 'chapter' && renderChapterDetail()}
-          {currentView === 'chat' && renderChat()}
-          {currentView === 'resources' && renderResources()}
-          {currentView === 'privacy' && renderPrivacyPolicy()}
+          {currentView === 'practice' && <Practice />}
+          {currentView === 'chat' && (
+             <div className="flex flex-col h-screen bg-krishna-50 pb-[64px]">
+                <div className="bg-white border-b border-krishna-200 p-4 shadow-sm z-10 flex items-center justify-between">
+                  <div className="flex items-center">
+                    <Sparkles className="w-5 h-5 text-peacock-700 mr-2" />
+                    <h2 className="font-bold text-krishna-900">Ask Gita AI</h2>
+                  </div>
+                  <button onClick={() => setMessages([{ id: 'welcome', role: 'model', text: "Namaste! How can I help?" }])}><Trash2 className="w-4 h-4 text-krishna-400" /></button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-4 space-y-4 max-w-3xl mx-auto w-full">
+                  {messages.map((msg) => (
+                    <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[85%] rounded-2xl p-4 shadow-sm ${msg.role === 'user' ? 'bg-krishna-700 text-white rounded-tr-none' : 'bg-white text-krishna-900 border border-krishna-100 rounded-tl-none'}`}>
+                        <p className="text-sm leading-relaxed">{msg.text}</p>
+                        {msg.citations && <div className="mt-2 text-[10px] opacity-60">Source: {msg.citations[0]}</div>}
+                      </div>
+                    </div>
+                  ))}
+                  {isLoading && <div className="text-xs text-krishna-400 animate-pulse">Assistant is thinking...</div>}
+                  <div ref={messagesEndRef} />
+                </div>
+                <div className="p-4 bg-white border-t border-krishna-200">
+                  <div className="max-w-3xl mx-auto relative flex items-center">
+                    <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()} placeholder="Type your question..." className="w-full pl-4 pr-12 py-3 rounded-full border border-krishna-300 outline-none" disabled={isLoading} />
+                    <button onClick={handleSendMessage} disabled={!input.trim() || isLoading} className="absolute right-2 p-2 bg-peacock-600 text-white rounded-full"><Send className="w-4 h-4" /></button>
+                  </div>
+                </div>
+             </div>
+          )}
+          {currentView === 'resources' && (
+            <div className="p-4 pt-8 max-w-3xl mx-auto text-center">
+              <h2 className="text-xl font-bold mb-4">Study Resources</h2>
+              <a href={GITA_PDF_URL} target="_blank" rel="noreferrer" className="p-4 bg-white border border-krishna-100 rounded-xl flex items-center justify-center space-x-2 shadow-sm hover:shadow-md transition-shadow">
+                <Book className="w-5 h-5 text-peacock-600" />
+                <span>Open Hindi Gita PDF</span>
+              </a>
+            </div>
+          )}
+          {currentView === 'privacy' && (
+            <div className="p-8 max-w-3xl mx-auto bg-white min-h-screen">
+              <button onClick={() => setCurrentView('home')} className="mb-4 text-krishna-500 flex items-center hover:text-krishna-700">
+                <ArrowLeft className="w-4 h-4 mr-2"/>Back
+              </button>
+              <h1 className="text-2xl font-bold mb-4">Privacy Policy</h1>
+              <p className="text-krishna-700 leading-relaxed">
+                Gita AI Assistant is designed for students. We do not collect, store, or share any personal information. 
+                Your chat sessions are strictly local to your browser and are not saved on any remote servers. 
+                AI responses are generated via the Google Gemini API using the queries you provide.
+              </p>
+            </div>
+          )}
+          {currentView === 'chapter' && (
+            <div className="p-4 max-w-3xl mx-auto">
+               <button onClick={() => setCurrentView('home')} className="mb-4 text-krishna-500 flex items-center hover:text-krishna-700">
+                 <ArrowLeft className="w-4 h-4 mr-2"/>Back
+               </button>
+               <div className="bg-white p-6 rounded-2xl shadow-lg border border-krishna-100">
+                 <h2 className="text-2xl font-serif font-bold text-krishna-900">{CHAPTERS.find(c => c.id === selectedChapterId)?.sanskritName}</h2>
+                 <h3 className="text-peacock-600 font-medium italic mt-1">{CHAPTERS.find(c => c.id === selectedChapterId)?.englishName}</h3>
+                 <p className="mt-4 text-krishna-800 leading-relaxed">{CHAPTERS.find(c => c.id === selectedChapterId)?.summary}</p>
+                 <a href={CHAPTERS.find(c => c.id === selectedChapterId)?.detailedUrl} target="_blank" rel="noreferrer" className="mt-6 inline-flex items-center text-peacock-600 font-bold hover:underline">
+                   Read Full Chapter <ExternalLink className="ml-2 w-4 h-4"/>
+                 </a>
+               </div>
+            </div>
+          )}
         </main>
-
-        {currentView !== 'privacy' && (
-          <BottomNav currentView={currentView} setView={setCurrentView} />
-        )}
-        
+        {currentView !== 'privacy' && <BottomNav currentView={currentView} setView={setCurrentView} />}
       </div>
     </HashRouter>
   );

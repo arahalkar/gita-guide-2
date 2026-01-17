@@ -1,31 +1,21 @@
 
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Modality } from "@google/genai";
 
 /**
  * World-class service for interacting with Gemini AI.
- * Grounds responses in the context of the Bhagavad Gita for students.
  */
 export const sendGitaQuestion = async (question: string, history: {role: string, parts: {text: string}[]}[] = []) => {
   try {
-    // Initialize the AI client directly before use
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    
-    // Using gemini-3-flash-preview for high speed and up-to-date grounding
     const modelName = 'gemini-3-flash-preview';
     
     const systemInstruction = `
       You are the official "Gita AI Assistant" — a wise, friendly, and encouraging mentor for students globally.
-      
-      Your goal is to provide guidance based on the Srimad Bhagavad Gita to help students (ages 12-18) navigate life's challenges.
-      - Keep your tone positive, inclusive, and easy to understand.
-      - Frame your answers around common student themes: concentration, handling stress, understanding duty (Dharma), and building character.
-      - Refer to specific Gita chapters or core concepts to ground your wisdom.
+      Your goal is to provide guidance based on the Srimad Bhagavad Gita to help students navigate life's challenges.
       - Be succinct (under 150 words).
-      - Use Google Search grounding to provide links to respected Gita sources or scholarly articles for further reading.
-      - If a user expresses extreme distress, kindly advise them to speak with a trusted adult or professional in addition to seeking spiritual guidance.
+      - Use Google Search grounding for scholarly links.
     `;
 
-    // Perform content generation
     const response = await ai.models.generateContent({
       model: modelName,
       contents: [
@@ -42,8 +32,7 @@ export const sendGitaQuestion = async (question: string, history: {role: string,
       }
     });
 
-    const answer = response.text || "I'm reflecting on your question. Could you try asking in a slightly different way?";
-    
+    const answer = response.text || "I'm reflecting on your question.";
     const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
     const citations: string[] = [];
     
@@ -57,9 +46,66 @@ export const sendGitaQuestion = async (question: string, history: {role: string,
       text: answer,
       citations: [...new Set(citations)]
     };
-
   } catch (error) {
     console.error("Gemini API Error:", error);
     throw error;
   }
 };
+
+/**
+ * Generates audio speech for a given text using Gemini TTS.
+ */
+export const generateSpeech = async (text: string) => {
+  try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash-preview-tts",
+      contents: [{ parts: [{ text: `Say calmly and wisely: ${text}` }] }],
+      config: {
+        responseModalities: [Modality.AUDIO],
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: { voiceName: 'Kore' },
+          },
+        },
+      },
+    });
+
+    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+    if (!base64Audio) throw new Error("No audio data received");
+    
+    return base64Audio;
+  } catch (error) {
+    console.error("TTS Error:", error);
+    throw error;
+  }
+};
+
+// Audio Utilities for decoding raw PCM from Gemini
+export function decodeBase64(base64: string) {
+  const binaryString = atob(base64);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
+
+export async function decodeAudioData(
+  data: Uint8Array,
+  ctx: AudioContext,
+  sampleRate: number = 24000,
+  numChannels: number = 1,
+): Promise<AudioBuffer> {
+  const dataInt16 = new Int16Array(data.buffer);
+  const frameCount = dataInt16.length / numChannels;
+  const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
+
+  for (let channel = 0; channel < numChannels; channel++) {
+    const channelData = buffer.getChannelData(channel);
+    for (let i = 0; i < frameCount; i++) {
+      channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
+    }
+  }
+  return buffer;
+}

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Home, MessageCircle, FileText } from 'lucide-react';
+import { Home, MessageCircle, FileText, Wind } from 'lucide-react';
 import { View } from '../types';
 
 interface BottomNavProps {
@@ -10,9 +10,10 @@ interface BottomNavProps {
 
 const BottomNav: React.FC<BottomNavProps> = ({ currentView, setView }) => {
   const navItems = [
-    { id: 'home', label: 'Chapters', icon: Home },
-    { id: 'chat', label: 'Ask Krisha', icon: MessageCircle },
-    { id: 'resources', label: 'Resources', icon: FileText },
+    { id: 'home', label: 'Home', icon: Home },
+    { id: 'practice', label: 'Practice', icon: Wind },
+    { id: 'chat', label: 'Ask AI', icon: MessageCircle },
+    { id: 'resources', label: 'Study', icon: FileText },
   ];
 
   return (
@@ -30,7 +31,7 @@ const BottomNav: React.FC<BottomNavProps> = ({ currentView, setView }) => {
                 isActive ? 'text-peacock-700' : 'text-krishna-300 hover:text-krishna-500'
               }`}
             >
-              <Icon className={`w-6 h-6 ${isActive ? 'fill-current' : ''}`} strokeWidth={isActive ? 2.5 : 2} />
+              <Icon className={`w-5 h-5 ${isActive ? 'fill-current' : ''}`} strokeWidth={isActive ? 2.5 : 2} />
               <span className="text-[10px] font-medium">{item.label}</span>
             </button>
           );
