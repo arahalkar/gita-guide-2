@@ -1,5 +1,5 @@
 
-const CACHE_NAME = 'gita-guide-v14';
+const CACHE_NAME = 'gita-guide-v15'; // Incremented version to clear old cache
 const URLS_TO_CACHE = [
   '/',
   '/index.html',
@@ -18,6 +18,13 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  // CRITICAL: Bypassing PDFs and Gemini API calls entirely.
+  // Letting the browser handle PDFs natively prevents issues with Range Requests
+  // which often cause "blank pages" in PDF viewers.
+  if (event.request.url.includes('.pdf') || event.request.url.includes('google/genai')) {
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
@@ -32,13 +39,9 @@ self.addEventListener('fetch', (event) => {
             }
 
             const responseToCache = response.clone();
-
             caches.open(CACHE_NAME)
               .then((cache) => {
-                // Don't cache API calls or large PDFs
-                if (!event.request.url.includes('google/genai') && !event.request.url.includes('.pdf')) {
-                   cache.put(event.request, responseToCache);
-                }
+                cache.put(event.request, responseToCache);
               });
 
             return response;

@@ -1,8 +1,8 @@
 
 import { Chapter } from './types';
 
-// Refers to a local file in the project root/public folder. 
-export const GITA_PDF_URL = "./gita-hindi.pdf"; 
+// Absolute path to ensure it loads correctly from any route
+export const GITA_PDF_URL = "/gita-hindi.pdf"; 
 
 export const GITA_QUOTES = [
   {
