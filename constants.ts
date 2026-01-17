@@ -1,5 +1,5 @@
 
-import { Chapter } from './types';
+import { Chapter, StudyResource } from './types';
 
 // Absolute path to ensure it loads correctly from any route
 export const GITA_PDF_URL = "/gita-hindi.pdf"; 
@@ -54,7 +54,7 @@ export const GITA_QUOTES = [
     lesson: "Don't let distractions get in the way of your goals."
   },
   {
-    devnagari: "अशान्तस्य कुतः सुखम्।",
+    devnagari: "अशान्तस्य कतः सुखम्।",
     verse: "ashantasy-akutah sukham",
     translation: "For the unsteady there is no peace, and for the peaceless there is no happiness.",
     lesson: "Take breaks to meditate or breathe. Peace leads to better results."
@@ -64,6 +64,28 @@ export const GITA_QUOTES = [
     verse: "Tasmat sarveshu kaleshu mam anusmara yudhya cha",
     translation: "Therefore, at all times, remember Me and fight.",
     lesson: "Keep your values in mind even when life gets competitive."
+  }
+];
+
+export const STUDY_RESOURCES: StudyResource[] = [
+  {
+    title: "Verse Recitation Practice",
+    url: "https://www.youtube.com/watch?v=kO8Bbg6wTHs&list=PLbI4xdR5Zqk6_FVA6YyNPKW2ukNsof3Z3&index=3",
+    description: "Step-by-step recitation guidance by Padmini Chandrashekar.",
+    type: 'video',
+    isFavorite: true
+  },
+  {
+    title: "Shankaracharya Bashya",
+    url: "https://archive.org/details/GEDy_bhagavad-gita-bhashya-of-shankaracharya-with-translation-by-dr.-a.-g-krishna-war/mode/1up",
+    description: "Classic commentary by Adi Shankaracharya with English translation by Dr. A.G. Krishna War.",
+    type: 'book'
+  },
+  {
+    title: "Verse Recitation & Meanings",
+    url: "https://shlokam.org/bhagavad-gita/1-1/",
+    description: "Word-for-word breakdown and audio for every shloka on Shlokam.org.",
+    type: 'web'
   }
 ];
 

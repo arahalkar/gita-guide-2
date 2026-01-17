@@ -3,10 +3,10 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { HashRouter } from 'react-router-dom';
 import { 
   Send, ArrowLeft, ExternalLink, Sparkles, Book, Trash2, 
-  Quote, Search, X
+  Quote, Search, X, Youtube, Globe, FileText, Music, Heart
 } from 'lucide-react';
-import { CHAPTERS, GITA_PDF_URL, GITA_QUOTES } from './constants';
-import { ChatMessage, View } from './types';
+import { CHAPTERS, GITA_PDF_URL, GITA_QUOTES, STUDY_RESOURCES } from './constants';
+import { ChatMessage, View, StudyResource } from './types';
 import { sendGitaQuestion } from './services/geminiService';
 import ChapterCard from './components/ChapterCard';
 import BottomNav from './components/BottomNav';
@@ -84,6 +84,16 @@ const App: React.FC = () => {
     if (window.confirm("Do you want to clear your conversation history?")) {
       const welcomeMsg: ChatMessage = { id: 'welcome', role: 'model', text: "Namaste! I am Krishna. Ask me anything about your studies, focus, or life duties." };
       setMessages([welcomeMsg]);
+    }
+  };
+
+  const getResourceIcon = (type: StudyResource['type']) => {
+    switch(type) {
+      case 'video': return <Youtube className="w-6 h-6 text-red-500" />;
+      case 'book': return <Book className="w-6 h-6 text-peacock-700" />;
+      case 'pdf': return <FileText className="w-6 h-6 text-blue-600" />;
+      case 'web': return <Globe className="w-6 h-6 text-emerald-600" />;
+      default: return <ExternalLink className="w-6 h-6 text-krishna-400" />;
     }
   };
 
@@ -220,13 +230,51 @@ const App: React.FC = () => {
              </div>
           )}
           {currentView === 'resources' && (
-            <div className="p-4 pt-8 max-w-3xl mx-auto text-center">
-              <h2 className="text-xl font-bold mb-4">Study Resources</h2>
-              <a href={GITA_PDF_URL} target="_blank" rel="noreferrer" className="p-4 bg-white border border-krishna-100 rounded-xl flex items-center justify-center space-x-2 shadow-sm hover:shadow-md transition-shadow">
-                <Book className="w-5 h-5 text-peacock-600" />
-                <span className="font-medium text-krishna-800">Open Hindi Gita PDF</span>
-              </a>
-              <p className="mt-4 text-xs text-krishna-400 italic">Load the official Bhagavad Gita to read the verses in depth.</p>
+            <div className="p-4 pt-8 pb-24 max-w-3xl mx-auto">
+              <header className="text-center mb-8">
+                <Book className="w-10 h-10 text-peacock-700 mx-auto mb-2" />
+                <h2 className="text-2xl font-serif font-bold text-krishna-900">Study Resources</h2>
+                <p className="text-krishna-600 text-sm">Curated tools to deepen your understanding</p>
+              </header>
+              
+              <div className="space-y-4">
+                {STUDY_RESOURCES.map((resource, index) => (
+                  <a 
+                    key={index}
+                    href={resource.url} 
+                    target="_blank" 
+                    rel="noreferrer" 
+                    className="group block p-5 bg-white border border-krishna-100 rounded-2xl shadow-sm hover:shadow-md hover:border-peacock-200 transition-all relative overflow-hidden"
+                  >
+                    <div className="flex items-start space-x-4">
+                      <div className="p-3 bg-krishna-50 rounded-xl group-hover:bg-peacock-50 transition-colors">
+                        {getResourceIcon(resource.type)}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2 mb-1">
+                          <h3 className="font-bold text-krishna-900 group-hover:text-peacock-700 transition-colors">
+                            {resource.title}
+                          </h3>
+                          {resource.isFavorite && (
+                            <span className="flex items-center space-x-1 px-2 py-0.5 bg-peacock-100 text-peacock-800 text-[9px] font-bold uppercase rounded-full">
+                              <Heart className="w-2.5 h-2.5 fill-current" />
+                              <span>My Favorite</span>
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-krishna-600 leading-relaxed">
+                          {resource.description}
+                        </p>
+                      </div>
+                      <ExternalLink className="w-4 h-4 text-krishna-300 group-hover:text-peacock-500 transition-colors self-start mt-1" />
+                    </div>
+                  </a>
+                ))}
+              </div>
+              
+              <p className="mt-8 text-center text-xs text-krishna-400 italic">
+                Knowledge is the greatest treasure. Keep learning.
+              </p>
             </div>
           )}
           {currentView === 'privacy' && (

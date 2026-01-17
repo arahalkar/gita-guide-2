@@ -16,4 +16,12 @@ export interface ChatMessage {
   citations?: string[];
 }
 
+export interface StudyResource {
+  title: string;
+  url: string;
+  description: string;
+  type: 'pdf' | 'video' | 'book' | 'web';
+  isFavorite?: boolean;
+}
+
 export type View = 'home' | 'chapter' | 'chat' | 'resources' | 'privacy';
